@@ -1,0 +1,1 @@
+# scraper-mcp-smithery
