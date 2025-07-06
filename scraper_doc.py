@@ -6,22 +6,44 @@ import time
 from urllib.parse import urljoin, urlparse
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import WebDriverException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Function to scrape a website and convert it to markdown
 def scrape_website(url, output_dir=None, image_download=False, wait_time=5):
+    """
+    Scrape a website and convert it to markdown format.
+    
+    Args:
+        url (str): The URL to scrape
+        output_dir (str, optional): Directory to save images
+        image_download (bool, optional): Whether to download images
+        wait_time (int, optional): Page load wait time in seconds
+    
+    Returns:
+        str: Markdown content or None if failed
+    """
     # Set up headless Chrome
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')  # Overcome limited resource problems
     options.add_argument('--window-size=1920,1080')
     
+    # Use webdriver-manager to automatically handle ChromeDriver version
     try:
-        with webdriver.Chrome(options=options) as driver:
+        service = Service(ChromeDriverManager().install())
+    except Exception as e:
+        print(f"Failed to setup ChromeDriver: {e}")
+        return None
+    
+    try:
+        with webdriver.Chrome(service=service, options=options) as driver:
             print(f"Loading page: {url}")
             driver.get(url)
             
@@ -56,6 +78,9 @@ def scrape_website(url, output_dir=None, image_download=False, wait_time=5):
     
     except WebDriverException as e:
         print(f"Failed to open browser: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error during scraping: {e}")
         return None
 
 def process_element(element, markdown_list, driver, base_url, output_dir=None, image_download=False, depth=0):

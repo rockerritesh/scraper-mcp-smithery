@@ -1,9 +1,10 @@
 # server.py
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
-import subprocess
 import asyncio
 import os
+from scraper_doc import scrape_website
+from urllib.parse import urlparse
 # from openai import OpenAI
 # load_dotenv()
 # client = OpenAI()
@@ -21,29 +22,43 @@ mcp = FastMCP("Demo")
 #     """Add two numbers"""
 #     return a + b
 
+def ensure_url_format(url: str) -> str:
+    """Ensure URL has proper protocol (http/https)"""
+    if not url.startswith(('http://', 'https://')):
+        # Default to https for better security
+        return f"https://{url}"
+    return url
+
 async def fetch_url(url: str) -> dict:
-    """Fetch the content of a URL."""
-    # Simulate a URL fetch with a python scraper
-    proc = await asyncio.create_subprocess_exec(
-        "python",
-        "scraper_doc.py",
-        url,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise Exception(f"Error: {stderr.decode().strip()}")
-    return {"organic_results": stdout.decode().strip()}
+    """Fetch the content of a URL using direct function call."""
+    try:
+        # Ensure proper URL format
+        formatted_url = ensure_url_format(url)
+        
+        # Run the scraper function in a thread to avoid blocking
+        loop = asyncio.get_event_loop()
+        markdown_content = await loop.run_in_executor(
+            None, 
+            scrape_website, 
+            formatted_url
+        )
+        
+        if markdown_content:
+            return {"organic_results": markdown_content}
+        else:
+            return {"organic_results": "Failed to scrape the website"}
+            
+    except Exception as e:
+        return {"organic_results": f"Error scraping website: {str(e)}"}
 
 @mcp.tool()
 async def search_web_tool(query: str) -> dict:
     """
     Search the web for a given query.
     Args:
-        query: The search query.
+        query: The search query (URL).
     Returns:
-        The search results.
+        The search results as markdown content.
     """
     return await fetch_url(query)
     
